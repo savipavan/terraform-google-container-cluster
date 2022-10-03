@@ -12,3 +12,6 @@ variable "project_id" {
 variable "project_region" {
   type = any
 }
+variable "node_locations" {
+  type = any
+}
