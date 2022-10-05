@@ -34,11 +34,11 @@ resource "google_container_cluster" "primary" {
         }
       }
 
-      dns_cache_config = var.dns_cache_config
-      gce_persistent_disk_csi_driver_config = var.gce_persistent_disk_csi_driver_config
-      kalm_config = var.kalm_config
-      config_connector_config = var.config_connector_config
-      gke_backup_agent_config = var.gke_backup_agent_config
+      dns_cache_config = try(addons_config.value.dns_cache_config, null)
+      gce_persistent_disk_csi_driver_config = try(addons_config.value.gce_persistent_disk_csi_driver_config, null)
+      kalm_config = try(addons_config.value.kalm_config, null)
+      config_connector_config = try(addons_config.value.config_connector_config, null)
+      gke_backup_agent_config = try(addons_config.value.gke_backup_agent_config, null)
     }  
   }
 
@@ -50,7 +50,7 @@ resource "google_container_cluster" "primary" {
       enabled = try(var.cluster_autoscaling.value.enabled, null)
       
       dynamic "resource_limits" {
-        for_each try(cluster_autoscaling.value.resource_limits, null) != null ? [cluster_autoscaling.value.resource_limits] : []
+        for_each = try(cluster_autoscaling.value.resource_limits, null) != null ? [cluster_autoscaling.value.resource_limits] : []
         content {
           resource_type = try(resource_limits.value.resource_type, null)
           minimum = try(resource_limits.value.minimum, null)
@@ -68,6 +68,8 @@ resource "google_container_cluster" "primary" {
           image_type = try(resource.value.image_type, null)
         }
       }
+
+      autoscaling_profile = try(cluster_autoscaling.value.autoscaling_profile, null)
     }
   }
 
@@ -219,7 +221,235 @@ resource "google_container_cluster" "primary" {
       oauth_scopes = var.oauth_scopes
       preemptible = var.preemptible
       
+      spot = var.spot
+      
+      dynamic "sandbox_config" {
+        for_each = try(node_config.value.sandbox_config, null) != null ? [node_config.value.sandbox_config] : []
+        content {
+
+          dynamic "sandbox_type" {
+            for_each = try(sandbox_config.value.sandbox_type, null) != null ? [sandbox_config.value.sandbox_type] : []
+            content {
+              gvisor = try(sandbox_type.value.sandbox_type, null)
+            }
+          }
+        }
+      }
+
+      boot_disk_kms_key = var.boot_disk_kms_key
+      service_account = var.service_account
+      
+      dynamic "shielded_instance_config" {
+        for_each = try(node_config.value.shielded_instance_config, null) != null ? [node_config.value.shielded_instance_config] : []
+        content {
+          enable_secure_boot = try(shielded_instance_config.value.enable_secure_boot, null)
+          enable_integrity_monitoring = try(shielded_instance_config.value.enable_integrity_monitoring, null)
+        }
+      }
+
+      tags = var.tags
+
+      dynamic "taint" {
+        for_each = try(node_config.value.taint, null) != null ? [node_config.value.taint] : []
+        content {
+          key = try(taint.value.key, null)
+          value = try(taint.value.value, null)
+          effect = try(taint.value.effect, null)
+        }
+      }
+
+      dynamic "workload_metadata_config" {
+        for_each = try(node_config.valu.workload_metadata_config, null) != null ? [node_config.valu.workload_metadata_config] : []
+        content {
+          mode = try(workload_metadata_config.value.workload_metadata_config, null)
+        }
+      }
+
+      dynamic "kubelet_config" {
+        for_each = try(node_config.valu.workload_metadata_config, null) != null ? [node_config.valu.workload_metadata_config] : []
+        content {
+          cpu_manager_policy = try(kubelet_config.value.cpu_manager_policy, null)
+          cpu_cfs_quota = try(kubelet_config.value.cpu_cfs_quota)
+          cpu_cfs_quota_period = try(kubelet_config.value.cpu_cfs_quota_period)
+        }
+      }
+
+      dynamic "linux_node_config" {
+        for_each = try(node_config.value.linux_node_config, null) != null ? [node_config.value.linux_node_config] : []
+        content {
+          sysctls = try(linux_node_config.value.sysctls)
+        }
+      }
+
+      node_group = var.node_group
     }
   }
-  remove_default_node_pool = true
+
+  dynamic "network_config" {
+    for_each = try(var.network_config, null) != null ? [var.network_config] : []
+    content {
+      create_pod_range = try(network_config.value.create_pod_range, null)
+      pod_ipv4_cidr_block = try(network_config.value.pod_ipv4_cidr_block, null)
+      pod_range = try(network_config.value.pod_range, null)
+    }
+  }
+
+  node_pool = var.node_pool
+
+  dynamic "node_pool_auto_config" {
+    for_each = try(var.node_pool_auto_config, null) != null ? [var.node_pool_auto_config] : []
+    content {
+      network_tags = try(node_pool_auto_config.value.network_tags, null)
+    }
+  }
+
+  dynamic "node_pool_defaults" {
+    for_each = try(var.node_pool_defaults, null) != null ? [var.node_pool_defaults] : []
+    content {
+      node_config_defaults = try(node_pool_defaults.value.node_config_defaults)
+    }
+  }
+
+  node_version = var.node_version
+
+  dynamic "notification_config" {
+    for_each = try(var.notification_config, null) != null ? [var.notification_config] : []
+    content {
+      
+      dynamic "pubsub" {
+        for_each = try(notification_config.value.pubsub, null) != null ? [notification_config.value.pubsub] : []
+        content {
+          enabled = try(pubsub.value.enabled, null)
+          topic = try(pubsub.value.topic, null)
+          filter = try(pubsub.value.filter, null)
+        }
+      }
+    }
+  }
+
+  dynamic "confidential_nodes" {
+    for_each = try(var.confidential_nodes, null) != null ? [var.confidential_nodes] : []
+    content {
+      enabled = try(confidential_nodes.value.enabled, null)
+    }
+  }
+
+  dynamic "pod_security_policy_config" {
+    for_each = try(var.pod_security_policy_config, null) != null ? [var.pod_security_policy_config] : []
+    content {
+      enabled = try(pod_security_policy_config.value.enabled, null)
+    }
+  }
+  
+  dynamic "authenticator_groups_config" {
+    for_each = try(var.authenticator_groups_config, null) != null ? [var.authenticator_groups_config] : []
+    content {
+      security_group = try(authenticator_groups_config.value.security_group, null)
+    }
+  }
+  dynamic "private_cluster_config" {
+    for_each = try(var.private_cluster_config, null) != null ? [var.private_cluster_config] : []
+    content {
+      enable_private_nodes = try(private_cluster_config.value.enable_private_nodes, null)
+      enable_private_endpoint = try(private_cluster_config.value.enable_private_endpoint, null)
+      master_ipv4_cidr_block = try(private_cluster_config.value.master_ipv4_cidr_block, null)
+      peering_name = try(private_cluster_config.value.peering_name, null)
+      private_endpoint = try(private_cluster_config.value.private_endpoint, null)
+      public_endpoint = try(private_cluster_config.value.public_endpoint, null)
+
+      dynamic "master_global_access_config" {
+        for_each = try(private_cluster_config.value.master_global_access_config, null)
+        content {
+          enabled = try(master_global_access_config.value.enabled, null)
+        }
+      }
+
+      dynamic "reservation_affinity" {
+        for_each = try(private_cluster_config.value.reservation_affinity, null) != null ? [private_cluster_config.value.reservation_affinity] : []
+        content {
+
+          dynamic "consume_reservation_type" {
+            for_each = try(reservation_affinity.value.consume_reservation_type, null) != null ? [reservation_affinity.value.consume_reservation_type] : []
+            content {
+              UNSPECIFIED = try(consume_reservation_type.value.UNSPECIFIED, null)
+              NO_RESERVATION = try(consume_reservation_type.value.NO_RESERVATION, null)
+              ANY_RESERVATION = try(consume_reservation_type.value.ANY_RESERVATION, null)
+              SPECIFIC_RESERVATION = try(consume_reservation_type.value.SPECIFIC_RESERVATION, null)
+            }
+          }
+          key = var.key
+          values = var.values
+        }
+      }
+    }
+  }
+  
+  dynamic "cluster_telemetry" {
+    for_each = try(var.cluster_telemetry, null) != null ? [var.cluster_telemetry] : []
+    content {
+      type = try(cluster_telemetry.value.type, null)
+    }
+  }
+
+  project = var.project
+
+  dynamic "release_channel" {
+    for_each = try(var.release_channel, null) != null ? [var.release_channel] : []
+    content {
+      channel = try(release_channel.value.channel, null)
+    }
+  }    
+    
+  remove_default_node_pool = var.remove_default_node_pool
+  resource_labels = var.resource_labels
+
+  dynamic "resource_usage_export_config" {
+    for_each = try(var.resource_usage_export_config, null) != null ? [var.resource_usage_export_config] : []
+    content {
+      enable_network_egress_metering = try(resource_usage_export_config.value.enable_network_egress_metering, null)
+      enable_resource_consumption_metering = try(resource_usage_export_config.value.enable_resource_consumption_metering, null)
+  
+      dynamic "bigquery_destination" {
+        for_each = try(resource_usage_export_config.value.bigquery_destination, null) != null ? [resource_usage_export_config.value.bigquery_destination] : []
+        content {
+        dataset_id = try(bigquery_destination.value.dataset_id, null)
+        }
+      }
+    }
+  } 
+
+  subnetwork = var.subnetwork
+  dynamic "vertical_pod_autoscaling" {
+    for_each = try(var.vertical_pod_autoscaling, null) != null ? [var.vertical_pod_autoscaling] : []
+    content {
+      enabled = try(vertical_pod_autoscaling.value.enabled, null)
+    }
+  }
+
+  dynamic "workload_identity_config" {
+    for_each = try(var.workload_identity_config, null) != null ? [var.workload_identity_config] : []
+    content {
+      workload_pool = try(workload_identity_config.value.workload_pool, null)
+    }
+  }
+    
+  enable_intranode_visibility = var.enable_intranode_visibility
+    enable_l4_ilb_subsetting = var.enable_l4_ilb_subsetting
+  private_ipv6_google_access = var.private_ipv6_google_access
+  datapath_provider = var.datapath_provider
+  dynamic "default_snat_status" {
+    for_each = try(var.default_snat_status, null) != null ? [var.default_snat_status] : []
+    content {
+      disabled = try(default_snat_status.value.disabled, null)
+    }
+  }
+
+  dynamic "dns_config" {
+    for_each = try(var.dns_config, null) != null ? [var.dns_config] : []
+    content {
+      cluster_dns = try(dns_config.value.cluster_dns, null)
+      cluster_dns_scope = try(dns_config.value.cluster_dns_scope, null)
+      cluster_dns_domain = try(dns_config.value.cluster_dns_domain, null)
+    }
+  }
 }
